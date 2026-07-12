@@ -10,3 +10,11 @@ class JdAnalyzeResponse(BaseModel):
     has_python: bool
     has_ai_keyword: bool
     keywords: list[str]
+
+
+class JdAnalysisResult(BaseModel):
+    job_title: str
+    required_skills: list[str]
+    responsibilities: list[str]
+    keywords: list[str]
+    difficulty: str

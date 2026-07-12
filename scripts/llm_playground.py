@@ -1,7 +1,13 @@
 import os
+import sys
+
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 from dotenv import load_dotenv
 from openai import OpenAI
+from app.services.jd_analysis import parse_jd_analysis
 
 
 # 这是一个常量，整个文件里不变
@@ -49,10 +55,21 @@ def chat(messages: list[dict]) -> str:
 
 # 这是一个函数，每次把 JD 文本填进去
 def build_jd_user_prompt(jd_text: str) -> str:
-    
-    return f"""请分析下面这段文本，提取出关键信息，并且输出包含职位名称，技能要求，职责，关键词四个部分
+    return f"""请分析下面的 JD 文本，只输出一个 JSON 对象，不要任何解释或 markdown 标记。
+JSON 必须包含以下字段，类型严格如下：
+- job_title: str（职位名称）
+- required_skills: list[str]（技能要求）
+- responsibilities: list[str]（职责）
+- keywords: list[str]（关键词）
+- difficulty: str（简单/中等/困难）
+
+示例格式：
+{{"job_title": "Python工程师", "required_skills": ["Python"], "responsibilities": ["后端开发"], "keywords": ["AI"], "difficulty": "中等"}}
+
+JD 文本：
 {jd_text}
-    """
+"""
+
 
 
 if __name__ == "__main__":
@@ -77,11 +94,35 @@ if __name__ == "__main__":
     要求：精通 Python，熟悉 FastAPI / Django，掌握 MySQL 与 Redis，
     了解 Docker 与 Linux 部署，有高并发经验者优先。"""
 
-    user_prompt = build_jd_user_prompt(sample_jd)
+    jd2 = """【机器学习算法工程师】
+    职责：负责推荐系统的算法设计与优化，搭建并迭代排序模型，分析业务数据驱动策略。
+    要求：熟悉 Python，掌握 PyTorch / TensorFlow，深入理解机器学习与深度学习，
+    有大模型微调或 NLP 经验者优先，具备扎实的数学与统计基础。"""
 
-    reply = call_llm(
-        prompt=user_prompt,
-        system_prompt=SYSTEM_PROMPT_JD,
-        temperature=0,
-    )
-    print(reply)
+    jd3 = """【前端开发工程师】
+    职责：负责公司官网与后台管理系统的前端开发，实现响应式交互界面。
+    要求：精通 JavaScript，熟悉 React / Vue，掌握 HTML/CSS，
+    了解 Webpack 与前端性能优化，有 TypeScript 经验者优先。"""
+
+
+    # user_prompt = build_jd_user_prompt(sample_jd)
+
+    # reply = call_llm(
+    #     prompt=user_prompt,
+    #     system_prompt=SYSTEM_PROMPT_JD,
+    #     temperature=0,
+    # )
+    # print(reply)
+
+
+    jds = [sample_jd, jd2, jd3]
+    ok = 0
+    for i, jd in enumerate(jds, 1):
+        raw = call_llm(prompt=build_jd_user_prompt(jd), system_prompt=SYSTEM_PROMPT_JD, temperature=0)
+        try:
+            result = parse_jd_analysis(raw)
+            ok += 1
+            print(f"JD{i} OK: {result.job_title} / 技能{len(result.required_skills)}个")
+        except Exception as e:
+            print(f"JD{i} 失败: {type(e).__name__}: {e}")   # 关键：打印错误，不吞掉
+    print(f"成功率: {ok}/{len(jds)}")
