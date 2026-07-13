@@ -1,12 +1,16 @@
+import logging
+
 from fastapi import APIRouter
 
 from app.schemas.jd import JdAnalyzeRequest, JdAnalyzeResponse
 
 router = APIRouter(prefix="/api/v1/jd", tags=["jd"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/analyze-basic")
 def analyze_basic(req: JdAnalyzeRequest) -> JdAnalyzeResponse:
+    logger.info("analyze-basic called, jd_text length=%s", len(req.jd_text))
     text = req.jd_text
     word_count = len(text)
     has_python = "python" in text.lower()
@@ -18,6 +22,13 @@ def analyze_basic(req: JdAnalyzeRequest) -> JdAnalyzeResponse:
         if kw.lower() in text_lower:
             keywords.append(kw)
     has_ai_keyword = len(keywords) > 0
+
+    logger.info(
+        "analyze-basic response: word_count=%s, has_python=%s, has_ai_keyword=%s",
+        word_count,
+        has_python,
+        has_ai_keyword,
+    )
 
     return JdAnalyzeResponse(
         word_count=word_count,
