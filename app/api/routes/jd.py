@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+
 from app.schemas.jd import JdAnalyzeRequest, JdAnalyzeResponse
 
 router = APIRouter(prefix="/api/v1/jd", tags=["jd"])

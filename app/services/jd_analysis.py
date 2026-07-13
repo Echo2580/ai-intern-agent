@@ -1,4 +1,5 @@
 import json
+
 from app.schemas.jd import JdAnalysisResult
 
 

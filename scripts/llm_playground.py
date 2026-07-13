@@ -1,17 +1,18 @@
 import os
 import sys
 
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 from dotenv import load_dotenv
 from openai import OpenAI
+
 from app.services.jd_analysis import parse_jd_analysis
 
-
 # 这是一个常量，整个文件里不变
-SYSTEM_PROMPT_JD = """你是一位资深招聘专家，熟悉当前就业市场以及各类岗位的职责与技能需求。请用清晰、结构化的中文回答。"""
+SYSTEM_PROMPT_JD = """你是一位资深招聘专家，
+熟悉当前就业市场以及各类岗位的职责与技能需求。
+请用清晰、结构化的中文回答。"""
 
 load_dotenv()
 
@@ -64,7 +65,11 @@ JSON 必须包含以下字段，类型严格如下：
 - difficulty: str（简单/中等/困难）
 
 示例格式：
-{{"job_title": "Python工程师", "required_skills": ["Python"], "responsibilities": ["后端开发"], "keywords": ["AI"], "difficulty": "中等"}}
+{{"job_title": "Python工程师",
+ "required_skills": ["Python"],
+   "responsibilities": ["后端开发"], 
+   "keywords": ["AI"], 
+   "difficulty": "中等"}}
 
 JD 文本：
 {jd_text}
@@ -118,7 +123,9 @@ if __name__ == "__main__":
     jds = [sample_jd, jd2, jd3]
     ok = 0
     for i, jd in enumerate(jds, 1):
-        raw = call_llm(prompt=build_jd_user_prompt(jd), system_prompt=SYSTEM_PROMPT_JD, temperature=0)
+        raw = call_llm(prompt=build_jd_user_prompt(jd), 
+                       system_prompt=SYSTEM_PROMPT_JD,
+                         temperature=0)
         try:
             result = parse_jd_analysis(raw)
             ok += 1

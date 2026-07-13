@@ -1,6 +1,6 @@
-from app.schemas.common import HealthResponse
 from pydantic import ValidationError
 
+from app.schemas.common import HealthResponse
 
 health_response = HealthResponse(
     status="ok",
