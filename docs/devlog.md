@@ -47,3 +47,15 @@
 - 遇到的问题：自动化测试不能依赖真实模型，否则结果会波动且消耗额度；JSON 解析错误、Schema 校验错误和内容理解错误也需要分开判断。
 - 验证方式：提交 `497367f`；固定假响应覆盖正常结果、Markdown JSON、非法 JSON、Pydantic 校验失败和 LLM 异常；5 段真实 JD 质量检查为 5/5；`ruff check .` 通过。
 - 后续改进：当前 `required_skills` 会将“FastAPI 或 Django”这类候选关系扁平化，未来可考虑增加技能分组字段。
+
+## 下阶段准备：将 analyze_jd 接入 FastAPI
+
+1. 在 `app/api/routes/jd.py` 新增 `POST /api/v1/jd/analyze` 路由。
+2. 使用请求模型接收 `jd_text`，并以 `JdAnalysisResult` 作为成功响应模型。
+3. 路由只调用 `analyze_jd(req.jd_text)`；Prompt 构建、LLM 调用和 JSON 解析继续保留在 `services/jd_analysis.py`。
+4. 将模型超时、限流和暂时不可用等上游问题转换为 HTTP `503`；请求模型校验失败由 FastAPI 返回 `422`。
+5. 为新接口补充正常请求、非法请求、上游模型失败和非法模型输出的自动化测试，并继续用固定假响应隔离外部 LLM。
+
+## 阶段复盘
+
+目前我能够搭建并运行一个 FastAPI 项目，使用 Pydantic 定义请求和响应模型，并将路由、配置和服务层分开组织。我能够完成结构化 LLM 调用链路：构建 Prompt、调用模型、清洗 JSON、解析并用 Pydantic 校验结果。我也能使用 Ruff、pre-commit 和日志来做基础工程质量控制。当前仍需要继续练习的是：独立设计完整的接口错误处理、把已有服务正确接入路由，以及更准确地评估 LLM 的内容质量。下一阶段优先将 `analyze_jd()` 接入 FastAPI，并为正常和失败场景补齐接口测试。
