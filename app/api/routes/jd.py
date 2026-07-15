@@ -1,8 +1,10 @@
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from app.schemas.jd import JdAnalyzeRequest, JdAnalyzeResponse
+from app.api.dependencies import get_llm_service
+from app.schemas.jd import JdAnalysisResult, JdAnalyzeRequest, JdAnalyzeResponse
+from app.services.llm_service import LlmService
 
 router = APIRouter(prefix="/api/v1/jd", tags=["jd"])
 logger = logging.getLogger(__name__)
@@ -36,3 +38,12 @@ def analyze_basic(req: JdAnalyzeRequest) -> JdAnalyzeResponse:
         has_ai_keyword=has_ai_keyword,
         keywords=keywords,
     )
+
+
+@router.post("/analyze-basic-llm", response_model=JdAnalysisResult)
+def analyze_basic_llm(
+    req: JdAnalyzeRequest,
+    llm_service: LlmService = Depends(get_llm_service),
+):
+    logger.info("analyze-basic-llm called, jd_text length=%s", len(req.jd_text))
+    return llm_service.analyze_jd(req.jd_text)
