@@ -41,9 +41,9 @@ def analyze_basic(req: JdAnalyzeRequest) -> JdAnalyzeResponse:
 
 
 @router.post("/analyze-basic-llm", response_model=JdAnalysisResult)
-def analyze_basic_llm(
+async def analyze_basic_llm(
     req: JdAnalyzeRequest,
     llm_service: LlmService = Depends(get_llm_service),
 ):
     logger.info("analyze-basic-llm called, jd_text length=%s", len(req.jd_text))
-    return llm_service.analyze_jd(req.jd_text)
+    return await llm_service.analyze_jd(req.jd_text)

@@ -2,7 +2,7 @@ import json
 import logging
 import time
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 from app.core.config import Settings
 from app.schemas.jd import JdAnalysisResult
@@ -38,13 +38,13 @@ def parse_jd_analysis(raw: str) -> JdAnalysisResult:
 class LlmService:
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.client = OpenAI(
+        self.client = AsyncOpenAI(
             api_key=settings.DEEPSEEK_API_KEY,
             base_url=settings.DEEPSEEK_BASE_URL,
         )
 
 
-    def call_llm(self,
+    async def call_llm(self,
         prompt: str,
         system_prompt: str = "",
         temperature: float | None = None,
@@ -71,12 +71,11 @@ class LlmService:
         start_time = time.perf_counter()
 
         try:
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=self.settings.LLM_MODEL,
                 messages=messages,
                 temperature=temperature,
                 max_tokens=self.settings.LLM_MAX_TOKENS,
-                timeout=self.settings.LLM_TIMEOUT,
             )
 
             content = response.choices[0].message.content
@@ -100,9 +99,9 @@ class LlmService:
         )
         return content
 
-    def analyze_jd(self, jd_text: str) -> JdAnalysisResult:
+    async def analyze_jd(self, jd_text: str) -> JdAnalysisResult:
         user_prompt = build_jd_user_prompt(jd_text)
-        raw = self.call_llm(
+        raw = await self.call_llm(
             prompt=user_prompt,
             system_prompt=SYSTEM_PROMPT_JD,
             temperature=0,
