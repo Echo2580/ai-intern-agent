@@ -1,11 +1,20 @@
 import logging
 
 from fastapi import Depends, FastAPI
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.dependencies import get_settings
+from app.api.error_handlers import (
+    app_exception_handler,
+    http_exception_handler,
+    unhandled_exception_handler,
+    validation_exception_handler,
+)
 from app.api.middleware import log_request_time
 from app.api.routes.jd import router as jd_router
 from app.core.config import Settings
+from app.core.exceptions import AppException
 from app.schemas.common import HealthResponse
 
 root_logger = logging.getLogger()
@@ -28,6 +37,10 @@ if not root_logger.handlers:
 app = FastAPI()
 app.include_router(jd_router)
 app.middleware("http")(log_request_time)
+app.add_exception_handler(AppException, app_exception_handler)
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 
 @app.get("/health", response_model=HealthResponse)

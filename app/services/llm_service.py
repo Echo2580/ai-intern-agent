@@ -1,10 +1,14 @@
+import asyncio
 import json
 import logging
+import random
 import time
 
+import openai
 from openai import AsyncOpenAI
 
 from app.core.config import Settings
+from app.core.exceptions import ServiceError
 from app.schemas.jd import JdAnalysisResult
 
 logger = logging.getLogger(__name__)
@@ -13,6 +17,7 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_JD = """你是一位资深招聘专家，
 熟悉当前就业市场以及各类岗位的职责与技能需求。
 请用清晰、结构化的中文回答。"""
+max_retries = 3
 
 
 def clean_json_response(text: str) -> str:
@@ -68,36 +73,48 @@ class LlmService:
             }
         )
 
+        async def _wait_with_backoff(attempt: int, 
+                                     base_delay: float = 1.0, 
+                                     max_delay: float = 10.0):
+            backoff = min(base_delay * (2 ** attempt), max_delay)  # 指数增长，封顶
+            jitter = random.uniform(0, backoff)                    # 随机抖动打散同步
+            wait = backoff + jitter
+            logger.warning("LLM 第 %s 次重试，等待 %.2fs", attempt + 1, wait)
+            await asyncio.sleep(wait)                              # 异步等待
+
         start_time = time.perf_counter()
+        
+        
+        for attempt in range(max_retries):
+            try:
+                response = await self.client.chat.completions.create(
+                    model=self.settings.LLM_MODEL,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=self.settings.LLM_MAX_TOKENS,
+                )
+                content = response.choices[0].message.content
+                if content is None:
+                    raise ValueError("LLM returned empty content")
+                duration_ms = (time.perf_counter() - start_time) * 1000
+                logger.info(
+                    "LLM call succeeded: prompt_length=%s, duration_ms=%.2f, output_length=%s",
+                    len(prompt),
+                    duration_ms,
+                    len(content),
+                )
+                return content                      # 成功：跳出重试循环
+            except (openai.RateLimitError, openai.APITimeoutError,
+                    openai.APIConnectionError, openai.InternalServerError) as e:
+                logger.warning("LLM 可重试异常 %s (第%s次)", type(e).__name__, attempt + 1)
+                if attempt == max_retries - 1:
+                    raise ServiceError(message="上游 LLM 多次重试仍失败", detail=str(e))
+                await _wait_with_backoff(attempt)
+                   # 填空：退避等待
+                continue
+            except openai.AuthenticationError as e:
+                raise ServiceError(message="LLM 认证失败，请检查 API Key", detail=str(e))
 
-        try:
-            response = await self.client.chat.completions.create(
-                model=self.settings.LLM_MODEL,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=self.settings.LLM_MAX_TOKENS,
-            )
-
-            content = response.choices[0].message.content
-            if content is None:
-                raise ValueError("LLM returned empty content")
-        except Exception:
-            duration_ms = (time.perf_counter() - start_time) * 1000
-            logger.exception(
-                "LLM call failed: prompt_length=%s, duration_ms=%.2f",
-                len(prompt),
-                duration_ms,
-            )
-            raise
-
-        duration_ms = (time.perf_counter() - start_time) * 1000
-        logger.info(
-            "LLM call succeeded: prompt_length=%s, duration_ms=%.2f, output_length=%s",
-            len(prompt),
-            duration_ms,
-            len(content),
-        )
-        return content
 
     async def analyze_jd(self, jd_text: str) -> JdAnalysisResult:
         user_prompt = build_jd_user_prompt(jd_text)
